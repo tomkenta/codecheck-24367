@@ -3,3 +3,4 @@ java/target/
 scala/target/
 python/**/*.pyc
 c++/**/*.o
+.idea/
