@@ -1,18 +1,15 @@
 from datetime import datetime as dt
 from datetime import timedelta
-from logging import getLogger, DEBUG, StreamHandler, Formatter
+from logging import getLogger, StreamHandler, Formatter, DEBUG, WARN
 import sys
 
-
-#loggerのセッティング あとで外に
-
 logger = getLogger(__name__)
-logger.setLevel(20)
+logger.setLevel(DEBUG)
 stream_handler = StreamHandler()
 formatter = Formatter(
     fmt="[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 stream_handler.setFormatter(formatter)
-stream_handler.setLevel(20)
+stream_handler.setLevel(DEBUG)
 logger.addHandler(stream_handler)
 
 MAX_NORMAL_WORK_HOUR = 7
@@ -20,16 +17,28 @@ DEFAULT_GO_HOME_TIME = timedelta(hours=16)
 DEFAULT_MIDNIGHT_OVERWORK_TIME = timedelta(hours=22)
 DEFAULT_CHANGE_DAY_TIME = timedelta(hours=24)
 LEGAL_WORKTIME_AMOUNT = timedelta(hours=8)
+PRESCRIBED_HOLIDAY = 6 #土曜日
+LEGAL_HOLIDAY = 7 #日曜日
+
+
 
 def main():
     """ エントリポイント"""
+    if 'test' in sys.argv:
+        logger.setLevel(WARN)
+        stream_handler.setLevel(WARN)
+        logger.addHandler(stream_handler)
+        month = sys.stdin.readline()
+        time_entry = sys.stdin.readlines()[0]
+    else :
+        month = '2017/01'
+        time_entry = [
+            '2017/01/16 08:00-12:00 13:00-18:00',
+            '2017/01/17 08:00-12:00 13:00-18:00',
+            '2017/01/18 08:00-12:00 13:00-18:00'
+        ]
+
     logger.debug('mainの開始')
-
-    month = sys.stdin.readline()
-    time_entry = sys.stdin.readline()
-
-    #month = '2017/02'
-    #time_entry = '2017/02/01 08:00-12:00 13:00-16:00'
 
     l = time_entry.split(" ")
     date_str , working_time_list = l[0], l[1:]
@@ -49,26 +58,51 @@ def main():
 
     #入力の切り分け
     a = [time.split("-") for time in working_time_list]
-    #b = [{"start_time":timedelta(hours= int(x[0].split(":")[0]), minutes=int(x[0].split(":")[1])),
-    #      "end_time":timedelta(hours= int(x[1].split(":")[0]), minutes=int(x[1].split(":")[1]))} for x in a]
-
     b = [{"start_time":hogehoge(date,x[0]),
         "end_time":hogehoge(date,x[1])} for x in a]
 
     i_4, b_4 = add_4pm(date, b)
     i_10, b_10 = add_10pm(date, b_4)
+    i_0, b_0 = add_0am(date, b_10)
 
-    day_hash["work_time"] = sum(b_4)
+    day_hash["work_time"] = sum(b)
 
-    if i_4 is not -1: #4pmまで
-        work_time_by4pm = sum(b_4[:i_4+1])
-        day_hash["work_normal_time"] = work_time_by4pm
-        day_hash["work_legal_time"] = LEGAL_WORKTIME_AMOUNT - day_hash["work_normal_time"]
-        day_hash["work_illegal_time"] = day_hash["work_time"] - LEGAL_WORKTIME_AMOUNT
+    if date.isoweekday() == PRESCRIBED_HOLIDAY :
+        day_hash["work_prescribed_holiday_time"] = day_hash["work_time"]
+        if i_10 is not -1:
+            work_time_by10pm = sum(b_10[:i_10+1])
+            day_hash["work_midnight_overwork_time"] = day_hash["work_time"] - work_time_by10pm
 
-    if i_10 is not -1: #10pmまで
-        work_time_by10pm = sum(b_10[:i_10+1])
-        day_hash["work_midnight_overwork_time"] = day_hash["work_time"] - work_time_by10pm
+        if i_0 is not -1: #0amまで
+            if (date + timedelta(days=1)).isoweekday() == LEGAL_HOLIDAY:
+                work_time_by0am = sum(b_0[:i_0+1])
+                day_hash["work_prescribed_holiday_time"] = work_time_by0am
+                day_hash["work_legal_holiday_time"] = day_hash["work_time"] - work_time_by0am
+
+    elif date.isoweekday() == LEGAL_HOLIDAY :
+        day_hash["work_legal_holiday_time"] = day_hash["work_time"]
+        if i_10 is not -1:
+            work_time_by10pm = sum(b_10[:i_10+1])
+            day_hash["work_midnight_overwork_time"] = day_hash["work_time"] - work_time_by10pm
+    else :
+
+        if i_4 is not -1: #4pmまで
+            work_time_by4pm = sum(b_4[:i_4+1])
+            day_hash["work_normal_time"] = work_time_by4pm
+            day_hash["work_legal_time"] = LEGAL_WORKTIME_AMOUNT - day_hash["work_normal_time"]
+            day_hash["work_illegal_time"] = day_hash["work_time"] - LEGAL_WORKTIME_AMOUNT
+
+        if i_10 is not -1: #10pmまで
+            work_time_by10pm = sum(b_10[:i_10+1])
+            day_hash["work_midnight_overwork_time"] = day_hash["work_time"] - work_time_by10pm
+
+        if i_0 is not -1: #0amまで
+            if (date + timedelta(days=1)).isoweekday() == PRESCRIBED_HOLIDAY:
+                work_time_by0am = sum(b_0[:i_0+1])
+                day_hash["work_illegal_time"] = work_time_by0am - LEGAL_WORKTIME_AMOUNT
+                day_hash["work_prescribed_holiday_time"] = day_hash["work_time"] - work_time_by0am
+
+
 
     timeprint(day_hash["work_legal_time"])
     timeprint(day_hash["work_illegal_time"])
@@ -131,9 +165,6 @@ def sum(b) :
     return sum
 
 #まだ例外は弱い
-
-
-
 class MyTime :
     def __init__(self,hour=0, min=0):
         self.hour = hour
