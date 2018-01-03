@@ -13,4 +13,4 @@ $ROOT/build.sh
 
 # Test start
 cd test && npm install && cd -
-mocha $(ls test/test*.js) -t 5300 -R tap
+mocha $(ls tcd est/test*.js) -t 5300 -R tap
