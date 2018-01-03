@@ -26,7 +26,9 @@ def main():
         logger.setLevel(WARN)
         stream_handler.setLevel(WARN)
         logger.addHandler(stream_handler)
-        month = sys.stdin.readline()
+        # \nもついてくる readline
+        month = sys.stdin.readline().rstrip()
+        # \n でsplitしてlistになる
         time_entry = sys.stdin.readlines()
     else :
         month = '2017/01'
@@ -36,36 +38,38 @@ def main():
             '2017/01/03 08:00-12:00 13:00-17:00',
             '2017/01/04 08:00-12:00 13:00-17:20',
             '2017/01/05 08:00-12:00 13:00-17:20',
-            '2017/01/06 08:00-12:00 13:00-18:40'
+            '2017/01/06 08:00-12:00 13:00-18:40',
 
-            # '2017/01/09 08:00-12:00 13:00-18:00',
-            # '2017/01/10 08:00-12:00 13:00-18:00',
-            # '2017/01/11 08:00-12:00 13:00-18:00',
-            # '2017/01/12 08:00-12:00 13:00-17:00',
-            # '2017/01/13 08:00-12:00 13:00-21:00',
-            #
-            # '2017/01/16 08:00-12:00 13:00-18:00',
-            # '2017/01/17 08:00-12:00 13:00-18:00',
-            # '2017/01/18 08:00-12:00 13:00-18:00',
-            # '2017/01/19 08:00-12:00 13:00-17:00',
-            # '2017/01/20 08:00-12:00 13:00-21:00',
-            #
-            # '2017/01/23 08:00-12:00 13:00-18:00',
-            # '2017/01/24 08:00-12:00 13:00-18:00',
-            # '2017/01/25 08:00-12:00 13:00-18:00',
-            # '2017/01/26 08:00-12:00 13:00-17:00',
-            # '2017/01/27 08:00-12:00 13:00-21:00',
-            #
-            # '2017/01/30 08:00-12:00 13:00-18:00',
-            # '2017/01/31 08:00-12:00 13:00-18:00',
-            # '2017/02/01 08:00-12:00 13:00-18:00',
-            # '2017/02/02 08:00-12:00 13:00-17:00',
-            # '2017/02/03 08:00-12:00 13:00-21:00'
+            '2017/01/09 08:00-12:00 13:00-18:00',
+            '2017/01/10 08:00-12:00 13:00-18:00',
+            '2017/01/11 08:00-12:00 13:00-18:00',
+            '2017/01/12 08:00-12:00 13:00-17:00',
+            '2017/01/13 08:00-12:00 13:00-21:00',
+
+            '2017/01/16 08:00-12:00 13:00-18:00',
+            '2017/01/17 08:00-12:00 13:00-18:00',
+            '2017/01/18 08:00-12:00 13:00-18:00',
+            '2017/01/19 08:00-12:00 13:00-17:00',
+            '2017/01/20 08:00-12:00 13:00-21:00',
+
+            '2017/01/23 08:00-12:00 13:00-18:00',
+            '2017/01/24 08:00-12:00 13:00-18:00',
+            '2017/01/25 08:00-12:00 13:00-18:00',
+            '2017/01/26 08:00-12:00 13:00-17:00',
+            '2017/01/27 08:00-12:00 13:00-21:00',
+
+            '2017/01/30 08:00-12:00 13:00-18:00',
+            '2017/01/31 08:00-12:00 13:00-18:00',
+            '2017/02/01 08:00-12:00 13:00-18:00',
+            '2017/02/02 08:00-12:00 13:00-17:00',
+            '2017/02/03 08:00-12:00 13:00-21:00'
         ]
 
     logger.debug('mainの開始')
     logger.debug('入力の解析,DBに保存')
+
     db = [gen_day_hash(x) for x in time_entry]
+    this_month = datetime.strptime(month,'%Y/%m').month
 
     result   = {
                 "work_time": timedelta(0),
@@ -97,13 +101,14 @@ def main():
 
     logger.debug('DBに対して演算')
     for record in db :
-        result["work_time"] += record["work_time"]
-        result["work_normal_time"] += record["work_normal_time"]
-        result["work_legal_time"] += record["work_legal_time"]
-        result["work_illegal_time"] += record["work_illegal_time"]
-        result["work_midnight_overwork_time"] += record["work_midnight_overwork_time"]
-        result["work_prescribed_holiday_time"] += record["work_prescribed_holiday_time"]
-        result["work_legal_holiday_time"] += record["work_legal_holiday_time"]
+        if record["date"].month is this_month:
+            result["work_time"] += record["work_time"]
+            result["work_normal_time"] += record["work_normal_time"]
+            result["work_legal_time"] += record["work_legal_time"]
+            result["work_illegal_time"] += record["work_illegal_time"]
+            result["work_midnight_overwork_time"] += record["work_midnight_overwork_time"]
+            result["work_prescribed_holiday_time"] += record["work_prescribed_holiday_time"]
+            result["work_legal_holiday_time"] += record["work_legal_holiday_time"]
 
     logger.debug('結果出力')
     timeprint(result["work_legal_time"],1)
@@ -118,7 +123,7 @@ def gen_day_hash(time_string):
     date_str, working_time_list = l[0], l[1:]
     date = datetime.strptime(date_str, '%Y/%m/%d')
 
-    day_hash = {"date": date_str,
+    day_hash = {"date": date,
                 "day": date.isoweekday(), # 1 - 7
                 "week": date.isocalendar()[1], #number of week
                 "work_time": timedelta(0),
@@ -188,10 +193,8 @@ def timeprint(time,mode=0):
     if mode is 0:
         print(str)
     elif mode is 1:
-        if int(minutes) < 30 : print(int(hours))
-        else: print(int(hour)+1)
-
-
+        if int(minutes) < 30: print(int(hours))
+        else: print(int(hours)+1)
 
 
 def date_add_by_string(date, time_string='00:00') :
